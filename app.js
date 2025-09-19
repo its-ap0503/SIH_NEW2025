@@ -1,4 +1,5 @@
 // Application Data
+
 const appData = {
   supportedLanguages: [
     {"code": "hi", "name": "Hindi", "native": "हिंदी"},
@@ -80,9 +81,173 @@ const appData = {
     bn: "আমি দুঃখিত, আমি বুঝতে পারিনি। আপনি কি আপনার প্রশ্নটি আবার বলতে পারবেন? আপনি ফি, বৃত্তি, সময়সূচী, লাইব্রেরির সময়, পরীক্ষার সময়সূচী বা ভর্তি সম্পর্কে জিজ্ঞাসা করতে পারেন।"
   }
 };
+// NLU: normalization and tokenization
+const NLU = (() => {
+  const punctRe = /[^\p{L}\p{N}\s]/gu;
+  const spacesRe = /\s+/g;
+
+  const normalize = (text, lang) => {
+    if (!text) return "";
+    let s = text.normalize("NFKC").toLowerCase();
+    s = s.replace(punctRe, " ").replace(spacesRe, " ").trim();
+    // unify numbers
+    s = s.replace(/[०-९]/g, d => "०१२३४५६७८९".indexOf(d)).replace(/[০-৯]/g, d => "০১২৩৪৫৬৭৮৯".indexOf(d));
+    return s;
+  };
+  function autoDetectLanguage(text) {
+  if (!text || text.length < 4) return;
+  const patterns = {
+    hi: /[\u0900-\u097F]/, // Devanagari
+    ta: /[\u0B80-\u0BFF]/, // Tamil
+    mr: /[\u0900-\u097F]/, // Devanagari
+    bn: /[\u0980-\u09FF]/, // Bengali
+    en: /[a-zA-Z]/
+  };
+  // simple heuristic scores
+  const scores = {};
+  for (const [lang, re] of Object.entries(patterns)) {
+    scores[lang] = (text.match(new RegExp(re, "g")) || []).length;
+  }
+  // pick best non-en if strong
+  let best = "en", bestScore = 0;
+  for (const [lang, s] of Object.entries(scores)) {
+    if (s > bestScore) { best = lang; bestScore = s; }
+  }
+  // margin: require at least 3 non-en chars to switch
+  if (best !== appState.currentLanguage && best !== "en" && bestScore >= 3) {
+    setLanguage(best);
+  }
+}
+
+  // naive tokens; script-aware fallback
+  const tokenize = (text) => text.split(/\s+/).filter(Boolean);
+
+  // minimal stemming/synonyms per language
+  const synonymMap = {
+    en: {
+      fees: ["fee", "fees", "payment", "pay", "tuition", "dues", "challan", "fine"],
+      exam: ["exam", "exams", "test", "hallticket", "hall", "result", "marks", "grade"],
+      timetable: ["timetable", "schedule", "class", "timing", "slots", "calendar"],
+      library: ["library", "lib", "book", "issue", "return", "renewal", "hours"],
+      scholarships: ["scholarship", "scholarships", "grant", "aid", "financial", "fee waiver"],
+      admission: ["admission", "admissions", "enroll", "enrollment", "apply", "application"]
+    },
+    hi: {
+      fees: ["फीस", "शुल्क", "पेमेंट", "भुगतान", "जुर्माना"],
+      exam: ["परीक्षा", "एग्जाम", "हॉल", "हॉलटिकट", "रिजल्ट", "परिणाम", "अंक"],
+      timetable: ["टाइमटेबल", "समय सारिणी", "कक्षा", "शेड्यूल"],
+      library: ["पुस्तकालय", "लाइब्रेरी", "किताब", "इश्यू", "रीटर्न", "नवीनीकरण"],
+      scholarships: ["वृत्ति", "स्कॉलरशिप", "आर्थिक", "सहायता"],
+      admission: ["प्रवेश", "एडमिशन", "आवेदन"]
+    },
+    ta: {
+      fees: ["கட்டணம்", "fees", "payment", "கட்டணங்கள்"],
+      exam: ["தேர்வு", "எக்சாம்", "hall", "டிக்கெட்", "மதிப்பெண்", "விளைவு"],
+      timetable: ["நேர அட்டவணை", "அட்டவணை", "கிளாஸ்", "அட்டவணை"],
+      library: ["நூலகம்", "புத்தகம்", "வழங்கு", "திரும்ப", "நேரங்கள்"],
+      scholarships: ["உதவித்தொகை", "அருளாதாரம்"],
+      admission: ["சேர்க்கை", "விண்ணப்பம்"]
+    },
+    mr: {
+      fees: ["फी", "शुल्क", "पेमेंट", "भरणा", "दंड"],
+      exam: ["परीक्षा", "हॉल", "तिकीट", "निकाल", "गुण"],
+      timetable: ["वेळापत्रक", "क्लास", "शेड्युल"],
+      library: ["ग्रंथालय", "लायब्ररी", "पुस्तक", "इश्यू", "रिटर्न"],
+      scholarships: ["शिष्यवृत्ती", "आर्थिक", "मदत"],
+      admission: ["प्रवेश", "अर्ज"]
+    },
+    bn: {
+      fees: ["ফি", "শুল্ক", "পেমেন্ট", "পরিশোধ", "জরিমানা"],
+      exam: ["পরীক্ষা", "হল", "টিকিট", "রেজাল্ট", "নম্বর"],
+      timetable: ["সময়সূচী", "ক্লাস", "সূচি"],
+      library: ["গ্রন্থাগার", "লাইব্রেরি", "বই", "ইস্যু", "রিটার্ন"],
+      scholarships: ["বৃত্তি", "আর্থিক", "সহায়তা"],
+      admission: ["ভর্তি", "আবেদন"]
+    }
+  };
+
+  // regex patterns with high precision
+  const regexIntents = {
+    en: [
+      { intent: "fees", re: /\b(last\s+date|deadline|due|pay|payment|tuition|fees?)\b/ },
+      { intent: "exam", re: /\b(hall\s*ticket|admit\s*card|result|exam|revaluation|grade)\b/ },
+      { intent: "timetable", re: /\b(timetable|schedule|class(es)?\s*(time|slot|schedule))\b/ },
+      { intent: "library", re: /\b(library|book\s*(issue|return|renew|fine)|opening\s*hours)\b/ },
+      { intent: "scholarships", re: /\b(scholarship|grant|financial\s*aid|fee\s*waiver)\b/ },
+      { intent: "admission", re: /\b(admission|enroll(ment)?|apply|application)\b/ }
+    ],
+    hi: [
+      { intent: "fees", re: /(आखिरी|अंतिम|डेडलाइन|तारीख|भुगतान|शुल्क|फीस)/ },
+      { intent: "exam", re: /(हॉल\s*टिकट|प्रवेश\s*पत्र|परिणाम|एग्जाम|परीक्षा)/ },
+      { intent: "timetable", re: /(समय\s*सारिणी|टाइमटेबल|कक्षा\s*समय)/ },
+      { intent: "library", re: /(पुस्तकालय|लाइब्रेरी|किताब|जुर्माना|समय)/ },
+      { intent: "scholarships", re: /(वृत्ति|स्कॉलरशिप|आर्थिक\s*सहायता)/ },
+      { intent: "admission", re: /(प्रवेश|एडमिशन|आवेदन)/ }
+    ],
+    ta: [
+      { intent: "fees", re: /(கட்டணம்|payment|fees|காலவரை|கடைசி\s*தேதி)/ },
+      { intent: "exam", re: /(தேர்வு|ஹால்\s*டிக்கெட்|விளைவு|மதிப்பெண்)/ },
+      { intent: "timetable", re: /(நேர\s*அட்டவணை|அட்டவணை|கிளாஸ்\s*டைம்)/ },
+      { intent: "library", re: /(நூலகம்|புத்தகம்|அபராதம்|நேரங்கள்)/ },
+      { intent: "scholarships", re: /(உதவித்தொகை|நிதி\s*உதவி)/ },
+      { intent: "admission", re: /(சேர்க்கை|விண்ணப்பம்)/ }
+    ],
+    mr: [
+      { intent: "fees", re: /(शुल्क|फी|भरणा|पेमेंट|अंतिम\s*तारीख)/ },
+      { intent: "exam", re: /(हॉल\s*तिकीट|निकाल|परीक्षा|गुण)/ },
+      { intent: "timetable", re: /(वेळापत्रक|क्लास\s*टाइम)/ },
+      { intent: "library", re: /(ग्रंथालय|पुस्तक|दंड|वेळ)/ },
+      { intent: "scholarships", re: /(शिष्यवृत्ती|आर्थिक\s*मदत)/ },
+      { intent: "admission", re: /(प्रवेश|अर्ज)/ }
+    ],
+    bn: [
+      { intent: "fees", re: /(ফি|শুল্ক|পরিশোধ|ডেডলাইন|শেষ\s*তারিখ)/ },
+      { intent: "exam", re: /(হল\s*টিকিট|রেজাল্ট|পরীক্ষা|নম্বর)/ },
+      { intent: "timetable", re: /(সময়সূচী|ক্লাস\s*টাইম)/ },
+      { intent: "library", re: /(গ্রন্থাগার|বই|জরিমানা|খোলার\s*সময়)/ },
+      { intent: "scholarships", re: /(বৃত্তি|আর্থিক\s*সহায়তা)/ },
+      { intent: "admission", re: /(ভর্তি|আবেদন)/ }
+    ]
+  };
+
+  // core classify
+  const classify = (text, lang, context) => {
+    const norm = normalize(text, lang);
+    if (!norm) return { intent: "general", confidence: 0 };
+    const tokens = tokenize(norm);
+
+    // 1) regex pass (high precision)
+    const patterns = regexIntents[lang] || regexIntents.en;
+    for (const { intent, re } of patterns) {
+      if (re.test(norm)) return { intent, confidence: 0.95 };
+    }
+
+    // 2) synonym overlap scoring
+    const dict = synonymMap[lang] || synonymMap.en;
+    let best = { intent: "general", score: 0 };
+    for (const [intent, synonyms] of Object.entries(dict)) {
+      const hits = synonyms.reduce((acc, s) => acc + (tokens.includes(s) ? 1 : 0), 0);
+      if (hits > best.score) best = { intent, score: hits };
+    }
+
+    // 3) context boost (last bot intent in memory)
+    let ctxBoost = 0;
+    const last = context?.lastIntent;
+    if (last && last === best.intent) ctxBoost = 0.2;
+
+    const confidence = Math.min(0.2 + best.score * 0.25 + ctxBoost, 0.9);
+    return { intent: best.intent, confidence };
+  };
+
+  return { normalize, tokenize, classify };
+})();
+
 
 // Application State
 const appState = {
+  // in appState
+// add:
+  lastIntent: "general",
   currentLanguage: 'en',
   conversations: [],
   currentConversation: [],
@@ -349,34 +514,26 @@ function sendMessage() {
 }
 
 function processUserMessage(message) {
-  const lowerMessage = message.toLowerCase();
+  const lang = appState.currentLanguage || "en";
+  // classify with context
+  const context = { lastIntent: appState.lastIntent };
+  const { intent, confidence } = NLU.classify(message, lang, context);
 
-  // Intent recognition (simple keyword matching)
-  const intents = {
-    fees: ['fee', 'payment', 'tuition', 'cost', 'money', 'pay', 'फीस', 'भुगतान', 'पैसा', 'கட்டணம்', 'पेमेंट', 'টাকা'],
-    scholarships: ['scholarship', 'financial aid', 'grant', 'छात्रवृत्ति', 'वित्तीय', 'புலமை', 'शिष्यवृत्ती', 'বৃত্তি'],
-    timetable: ['timetable', 'schedule', 'class', 'timing', 'समय', 'कक्षा', 'நேர', 'वेळ', 'সময়'],
-    library: ['library', 'book', 'study', 'पुस्तकालय', 'किताब', 'நூலகம்', 'पुस्तक', 'লাইব্রেরি'],
-    exam: ['exam', 'test', 'result', 'marks', 'परीक्षा', 'अंक', 'தேர्व', 'परीक्षा', 'পরীক্ষা'],
-    admission: ['admission', 'enrollment', 'join', 'प्रवेश', 'दाखिला', 'சேர्क்கை', 'प्रवेश', 'ভর্তি']
-  };
-
-  let matchedIntent = 'general';
-  let maxMatches = 0;
-
-  for (const [intent, keywords] of Object.entries(intents)) {
-    const matches = keywords.filter(keyword => lowerMessage.includes(keyword)).length;
-    if (matches > maxMatches) {
-      maxMatches = matches;
-      matchedIntent = intent;
-    }
+  // thresholds
+  if (confidence >= 0.6) {
+    appState.lastIntent = intent;
+    updateQueryAnalytics(intent);
+    return getBotResponse(intent);
   }
 
-  // Update analytics
-  updateQueryAnalytics(matchedIntent);
-
-  return getBotResponse(matchedIntent);
+  // low confidence: propose top categories based on tokens
+  const suggestions = ["fees", "exam", "timetable", "library", "scholarships", "admission"];
+  const tip = appData.fallbackResponses[lang] || appData.fallbackResponses.en;
+  const hint = suggestions.slice(0, 3).map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(" • ");
+  updateQueryAnalytics("general");
+  return `${tip}\n\n${hint}`;
 }
+
 
 function getBotResponse(intent) {
   const responses = appData.campusFAQ[intent];
