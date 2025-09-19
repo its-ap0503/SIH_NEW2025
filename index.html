@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Campus Assistant - Multilingual Chatbot</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="header-content">
+                <h1>Campus Assistant</h1>
+                <div class="header-controls">
+                    <select id="languageSelector" class="form-control language-selector">
+                        <option value="en">English</option>
+                        <option value="hi">हिंदी</option>
+                        <option value="ta">தமிழ்</option>
+                        <option value="mr">मराठी</option>
+                        <option value="bn">বাংলা</option>
+                    </select>
+                    <button class="btn btn--outline settings-btn" id="settingsBtn">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="3"></circle>
+                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1 1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Chat Interface -->
+            <div class="chat-container" id="chatContainer">
+                <div class="chat-messages" id="chatMessages">
+                    <!-- Welcome message will be inserted here -->
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="quick-actions" id="quickActions">
+                    <!-- Quick action buttons will be inserted here -->
+                </div>
+
+                <!-- Input Area -->
+                <div class="chat-input-container">
+                    <div class="input-wrapper">
+                        <input 
+                            type="text" 
+                            id="messageInput" 
+                            class="message-input" 
+                            placeholder="Type your message..."
+                            autocomplete="off"
+                        >
+                        <button class="send-btn" id="sendBtn" disabled>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="22" y1="2" x2="11" y2="13"></line>
+                                <polygon points="22,2 15,22 11,13 2,9"></polygon>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="input-actions">
+                        <button class="btn btn--small btn--outline" id="humanAgentBtn">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="12" cy="7" r="4"></circle>
+                            </svg>
+                            <span data-translate="human_agent">Human Agent</span>
+                        </button>
+                        <button class="btn btn--small btn--outline" id="clearChatBtn">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="3,6 5,6 21,6"></polyline>
+                                <path d="M19,6v14a2,2,0,0,1-2,2H7a2,2,0,0,1-2-2V6m3,0V4a2,2,0,0,1,2-2h4a2,2,0,0,1,2,2v2"></path>
+                            </svg>
+                            <span data-translate="clear_chat">Clear Chat</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Analytics Panel -->
+            <div class="analytics-panel" id="analyticsPanel" style="display: none;">
+                <div class="panel-header">
+                    <h3>Analytics Dashboard</h3>
+                    <button class="btn btn--outline" id="closeAnalyticsBtn">Close</button>
+                </div>
+                <div class="analytics-content">
+                    <div class="metric-card">
+                        <h4>Total Conversations</h4>
+                        <span class="metric-value" id="totalConversations">0</span>
+                    </div>
+                    <div class="metric-card">
+                        <h4>Most Popular Language</h4>
+                        <span class="metric-value" id="popularLanguage">English</span>
+                    </div>
+                    <div class="metric-card">
+                        <h4>Top Query Type</h4>
+                        <span class="metric-value" id="topQuery">Fees</span>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="usageChart" width="400" height="200"></canvas>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Settings Modal -->
+        <div class="modal" id="settingsModal" style="display: none;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Settings</h3>
+                    <button class="modal-close" id="closeSettingsBtn">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="setting-group">
+                        <label for="darkModeToggle">Dark Mode</label>
+                        <input type="checkbox" id="darkModeToggle">
+                    </div>
+                    <div class="setting-group">
+                        <label for="notificationsToggle">Notifications</label>
+                        <input type="checkbox" id="notificationsToggle" checked>
+                    </div>
+                    <div class="setting-group">
+                        <button class="btn btn--primary" id="exportChatBtn">Export Chat History</button>
+                    </div>
+                    <div class="setting-group">
+                        <button class="btn btn--outline" id="showAnalyticsBtn">View Analytics</button>
+                    </div>
+                    <div class="setting-group">
+                        <h4>Privacy</h4>
+                        <p>Your conversations are processed locally and not stored on external servers. We are GDPR compliant.</p>
+                        <button class="btn btn--outline" id="clearDataBtn">Clear All Data</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading Overlay -->
+        <div class="loading-overlay" id="loadingOverlay" style="display: none;">
+            <div class="loading-spinner"></div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
