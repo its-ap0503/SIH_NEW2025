@@ -246,7 +246,6 @@ This project is open source and available under the [MIT License](https://openso
 5. Submit a pull request
 
 ## Support
-
 For technical support or questions:
 - Check the troubleshooting section above
 - Review browser console for error messages
